@@ -3,17 +3,26 @@ import { dbConnect, dbDisconnect } from "./db/connect";
 import init from "./lib/util/init";
 import router from "./routes";
 import { initTrpcRouter } from "./trpc/initTrpcRoute";
+import cors from "cors";
 
 async function main() {
   const app = express();
+  app.use(
+    cors({
+      origin: ["http://localhost:3000", "http://127.0.0.1:3000"], // Your frontend URL
+      credentials: true,
+    })
+  );
+  // Add body parsing middleware
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  // await dbConnect();
 
-  await dbConnect();
-
-  await init();
+  // await init();
 
   initTrpcRouter(app);
 
-  // app.use("/api", router);
+  app.use("/api", router);
 
   app.listen(process.env.PORT, () => {
     console.log(`API Listening on Port ${process.env.PORT}`);

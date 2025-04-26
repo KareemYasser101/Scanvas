@@ -10,11 +10,15 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@tailwindcss/vite": ["../../node_modules/@tailwindcss/vite"]
+    }
   },
   "include": ["src"],
   "exclude": ["node_modules"],

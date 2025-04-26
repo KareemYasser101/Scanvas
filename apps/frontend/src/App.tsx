@@ -1,22 +1,34 @@
-import React from "react";
+import React, { useState } from "react";
 import { RouterProvider } from "react-router-dom";
 import useRouter from "./router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc } from "./api/trpc";
-import { httpBatchLink } from "@trpc/client";
+import { httpBatchLink, createTRPCClient, createTRPCProxyClient } from "@trpc/client";
+import { AppRouter } from "../../backend/src/trpc/router/_app";
+
 
 function App() {
-  const [trpcClient] = React.useState(() =>
+  const [trpcClient] = useState(() =>
     trpc.createClient({
       links: [
         httpBatchLink({
-          url: "http://localhost:3000/api/trpc",
+          url: "/api/trpc",
         }),
       ],
     })
   );
-  const [queryClient] = React.useState(() => new QueryClient());
-  
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
+
   
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
