@@ -3,9 +3,11 @@
  */
 import { publicProcedure, router } from '../trpc';
 import { canvasRouter } from './canvas';
+import { ocrRouter } from './ocr';
  
 export const appRouter = router({
-  canvas: canvasRouter
+  canvas: canvasRouter,
+  ocr: ocrRouter
 });
  
 export type AppRouter = typeof appRouter;
