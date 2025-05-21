@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import os
-import matplotlib.pyplot as plt
 import sys
 import itertools
 
@@ -65,7 +64,6 @@ def process_image(image_path, output_path):
     cv2.imwrite(output_path, warped)
     print(f"✅ Perspective corrected image saved to: {output_path}")
 
-    # Step 5: Extract only ID cells
     def extract_id_cells(warped_img):
         gray = cv2.cvtColor(warped_img, cv2.COLOR_BGR2GRAY)
         _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
@@ -117,6 +115,50 @@ def process_image(image_path, output_path):
 
         return debug_img, id_cells
 
+    # Postprocess and save clean digit cell
+    def clean_and_rebuild_cell(cropped):
+        gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+
+        # Adaptive threshold to binarize
+        binary = cv2.adaptiveThreshold(
+            gray, 255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            blockSize=11, C=10
+        )
+
+        # Remove connected components touching the border
+        # h, w = binary.shape
+        # mask = np.zeros((h + 2, w + 2), np.uint8)
+        # for x in range(w):
+        #     for y in [0, h - 1]:
+        #         if binary[y, x] == 255:
+        #             cv2.floodFill(binary, mask, (x, y), 0)
+        # for y in range(h):
+        #     for x in [0, w - 1]:
+        #         if binary[y, x] == 255:
+        #             cv2.floodFill(binary, mask, (x, y), 0)
+
+        # Find bounding box of remaining foreground
+        coords = cv2.findNonZero(binary)
+        if coords is None:
+            return np.zeros((28, 28), dtype=np.uint8)
+
+        x, y, w, h = cv2.boundingRect(coords)
+        digit = binary[y:y + h, x:x + w]
+
+        # Pad to square
+        side = max(w, h)
+        square = np.zeros((side, side), dtype=np.uint8)
+        xo = (side - w) // 2
+        yo = (side - h) // 2
+        square[yo:yo + h, xo:xo + w] = digit
+
+        # Resize to 28x28
+        digit_28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
+        return digit_28
+
+
     grid_image, id_cells = extract_id_cells(warped)
     print(f"✅ Extracted {len(id_cells)} ID cells.")
 
@@ -125,19 +167,26 @@ def process_image(image_path, output_path):
     cv2.imwrite(grid_output, grid_image)
     print(f"✅ ID grid overlay saved to: {grid_output}")
 
-    # Save extracted ID cell images
-    output_cells_folder = os.path.join(output_folder, "extracted_id_cells")
-    os.makedirs(output_cells_folder, exist_ok=True)
+    # Save final 28x28 cleaned cells
+    final_output_folder = os.path.join(output_folder, "final_clean_cells")
+    os.makedirs(final_output_folder, exist_ok=True)
 
     for idx, (x, y, w, h) in enumerate(id_cells):
-        cell_img = warped[y:y + h, x:x + w]
-        cell_filename = os.path.join(output_cells_folder, f"id_cell_{idx + 1:03d}.png")
-        cv2.imwrite(cell_filename, cell_img)
+        # Apply a small margin to avoid grid/border artifacts
+        margin = 4
+        x1 = max(x + margin, 0)
+        y1 = max(y + margin, 0)
+        x2 = min(x + w - margin, warped.shape[1])
+        y2 = min(y + h - margin, warped.shape[0])
 
-    print(f"✅ Saved {len(id_cells)} ID cell images to: {output_cells_folder}")
+        cell_img = warped[y1:y2, x1:x2]
+        clean_img = clean_and_rebuild_cell(cell_img)
+        final_path = os.path.join(final_output_folder, f"id_cell_{idx + 1:03d}.png")
+        cv2.imwrite(final_path, clean_img)
+
+    print(f"✅ Cleaned digit cells saved to: {final_output_folder}")
 
 
-# Script entry point
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python detect_arucoImage.py input_image output_image")
