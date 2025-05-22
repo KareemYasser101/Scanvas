@@ -65,7 +65,7 @@ const Auth = () => {
             <button
               type="submit"
               disabled={false}
-              className="w-full relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 shadow-sm disabled:opacity-50"
+              className="w-full relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <span className="relative px-6 sm:px-8 py-3 sm:py-4 bg-white/30 rounded-full group-hover:bg-white/50 text-gray-800 transition-all ease-in-out duration-300 group-hover:scale-105 w-full">
                 {false ? "Authenticating..." : "Submit Token"}

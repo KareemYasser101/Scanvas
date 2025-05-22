@@ -36,20 +36,20 @@ export const canvasRouter = router({
       try {
         const userResponse = await canvas.get("/api/v1/courses");
         console.log("user: ", userResponse);
-        // ✅ Check if Canvas redirects instead of authenticating
+        // Check if Canvas redirects instead of authenticating
         if (userResponse.statusCode === 302) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
-            message: "Invalid access token ❌",
+            message: "Invalid access token ",
           });
         }
 
-        // ✅ Otherwise, treat it as a valid user
+        // Otherwise, treat it as a valid user
         const user = userResponse as unknown as CanvasUser;
 
         return {
           success: true,
-          message: "Access token is valid ✅",
+          message: "Access token is valid ",
           user: {
             id: user.id,
             name: user.name,
@@ -131,7 +131,9 @@ export const canvasRouter = router({
       z.object({
         accessToken: z.string().min(1, "Access Token is required"),
         courseId: z.string().min(1, "Course ID is required"),
-        imageUrl: z.string().url("Image URL must be valid"),
+        imageUrls: z
+          .array(z.string().url("Each image URL must be valid"))
+          .min(1, "At least one image URL is required"),
         assignmentName: z.string().min(1, "Assignment Name is required"),
         pointsPossible: z.number().min(0.5, "Points must be greater than 0"),
       })
@@ -140,16 +142,16 @@ export const canvasRouter = router({
       const canvas = new CanvasApi(API_URL, input.accessToken);
 
       try {
-        // ✅ Check if access token is valid
+        // Check if access token is valid
         const checkAuth = await canvas.get("/api/v1/users/self");
         if (checkAuth.statusCode === 302 || !checkAuth.json) {
           throw new TRPCError({
             code: "UNAUTHORIZED",
-            message: "Invalid access token ❌",
+            message: "Invalid access token ",
           });
         }
 
-        // ✅ Create the attendance assignment
+        // Create the attendance assignment
         const assignmentResponse = await canvas.request(
           `/api/v1/courses/${input.courseId}/assignments`,
           "POST",
@@ -158,7 +160,7 @@ export const canvasRouter = router({
             points_possible: input.pointsPossible,
             submission_types: ["none"], // No file uploads
             published: true,
-            description: `Attendance based on image: ${input.imageUrl}`,
+            description: `Attendance based on ${input.imageUrls.length} image(s):\n${input.imageUrls.join("\n")}`,
           }
         );
 
@@ -173,13 +175,13 @@ export const canvasRouter = router({
         // *******OCR-SERVICE*******
         // ***Send and Recieve requests using HTTP to the python server***
 
-        // ✅ Hardcoded list of students for now (replace later with OCR output)
+        // Hardcoded list of students for now (replace later with OCR output)
         const presentStudents = [
           12345, // Example Canvas User IDs
           67890,
         ];
         // *******OCR-SERVICE*******
-        
+
         // After assignment is created
         const gradeData = presentStudents.reduce(
           (acc, studentId) => {
@@ -189,7 +191,7 @@ export const canvasRouter = router({
           {} as Record<string, { posted_grade: number }>
         );
 
-        // ✅ Bulk mark all students at once
+        // Bulk mark all students at once
         await canvas.request(
           `/api/v1/courses/${input.courseId}/assignments/${assignmentId}/submissions/update_grades`,
           "POST",
@@ -200,7 +202,7 @@ export const canvasRouter = router({
 
         return {
           success: true,
-          message: "Attendance assignment created and students marked ✅",
+          message: "Attendance assignment created and students marked ",
           assignmentId,
           markedStudents: presentStudents.length,
         };
