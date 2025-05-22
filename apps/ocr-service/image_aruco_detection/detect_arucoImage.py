@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from scipy import ndimage
 import os
 import sys
 import itertools
@@ -116,11 +115,10 @@ def process_image(image_path, output_path):
 
         return debug_img, id_cells
 
-    # Postprocess and save clean digit cell
     def clean_and_rebuild_cell(cropped):
         gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
-        # Binarize
+        # Adaptive threshold to binarize
         binary = cv2.adaptiveThreshold(
             gray, 255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -128,7 +126,6 @@ def process_image(image_path, output_path):
             blockSize=11, C=10
         )
 
-        # Find digit bounding box
         coords = cv2.findNonZero(binary)
         if coords is None:
             return np.zeros((28, 28), dtype=np.uint8)
@@ -136,7 +133,7 @@ def process_image(image_path, output_path):
         x, y, w, h = cv2.boundingRect(coords)
         digit = binary[y:y + h, x:x + w]
 
-        # Resize to 20x20 while keeping aspect ratio
+        # Resize to 20x20 (preserving aspect ratio)
         if w > h:
             new_w = 20
             new_h = int(h * (20.0 / w))
@@ -146,30 +143,38 @@ def process_image(image_path, output_path):
 
         resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-        # Create 28x28 image and paste resized digit at center
+        # Place in 28x28 black canvas
         padded = np.zeros((28, 28), dtype=np.uint8)
         x_offset = (28 - new_w) // 2
         y_offset = (28 - new_h) // 2
         padded[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
 
-        return padded
+        # Apply dilation to thicken
+        kernel = np.ones((2, 2), np.uint8)
+        dilated = cv2.dilate(padded, kernel, iterations=1)
+
+        # Apply Gaussian blur to smooth
+        smoothed = cv2.GaussianBlur(dilated, (3, 3), sigmaX=0.5)
+
+        return smoothed
 
 
-
+    # === Extract cells ===
     grid_image, id_cells = extract_id_cells(warped)
     print(f"✅ Extracted {len(id_cells)} ID cells.")
 
-    # Save debug image with ID boxes overlay
+    # Save debug grid image
     grid_output = os.path.join(output_folder, "id_grid_detected.png")
     cv2.imwrite(grid_output, grid_image)
     print(f"✅ ID grid overlay saved to: {grid_output}")
 
-    # Save final 28x28 cleaned cells
+    # Output folders
     final_output_folder = os.path.join(output_folder, "final_clean_cells")
+    raw_output_folder = os.path.join(output_folder, "raw_cells")
     os.makedirs(final_output_folder, exist_ok=True)
+    os.makedirs(raw_output_folder, exist_ok=True)
 
     for idx, (x, y, w, h) in enumerate(id_cells):
-        # Apply a small margin to avoid grid/border artifacts
         margin = 4
         x1 = max(x + margin, 0)
         y1 = max(y + margin, 0)
@@ -177,11 +182,19 @@ def process_image(image_path, output_path):
         y2 = min(y + h - margin, warped.shape[0])
 
         cell_img = warped[y1:y2, x1:x2]
+
+        # Save raw cell
+        raw_path = os.path.join(raw_output_folder, f"id_cell_{idx + 1:03d}.png")
+        cv2.imwrite(raw_path, cell_img)
+
+        # Save cleaned cell
         clean_img = clean_and_rebuild_cell(cell_img)
         final_path = os.path.join(final_output_folder, f"id_cell_{idx + 1:03d}.png")
         cv2.imwrite(final_path, clean_img)
 
+    print(f"✅ Raw cells saved to: {raw_output_folder}")
     print(f"✅ Cleaned digit cells saved to: {final_output_folder}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
