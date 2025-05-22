@@ -1,13 +1,45 @@
 import { useState } from "react";
+import { trpc } from "../../api/trpc";
+import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 const Auth = () => {
   const [accessToken, setAccessToken] = useState("");
+  const navigate = useNavigate();
+
+  const { mutate, error } =
+    trpc.canvas.authenticateAccessToken.useMutation({
+      onSuccess(data) {
+        toast.success(`Authenticated successfully`);
+        // Navigate or store user details
+        // navigate("/dashboard");
+      },
+      onError(error) {
+        console.error("Authentication Error:", error);
+        toast.error(error.message || "Authentication failed");
+      },
+    });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement token submission logic
-    console.log("Submitted token:", accessToken);
+
+    // Basic validation
+    if (!accessToken.trim()) {
+      toast.error("Please enter an access token");
+      return;
+    }
+
+    console.log("Attempting to authenticate with token:", accessToken);
+
+    mutate({
+      accessToken,
+    });
   };
+
+  // Debug logging for any tRPC errors
+  if (error) {
+    console.error("tRPC Mutation Error:", error);
+  }
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-white">
@@ -21,7 +53,7 @@ const Auth = () => {
       <div className="relative z-10 w-full max-w-md px-4 sm:px-6 lg:px-8">
         <div className="bg-white/30 backdrop-blur-lg rounded-2xl shadow-lg p-6 sm:p-8 space-y-6">
           <h1 className="text-3xl sm:text-4xl font-bold text-center text-gray-800 mb-4">
-            Enter Access Token
+            Enter Canvas Access Token
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -35,13 +67,21 @@ const Auth = () => {
 
             <button
               type="submit"
-              className="w-full relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 shadow-sm"
+              disabled={false}
+              className="w-full relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 shadow-sm disabled:opacity-50"
             >
               <span className="relative px-6 sm:px-8 py-3 sm:py-4 bg-white/30 rounded-full group-hover:bg-white/50 text-gray-800 transition-all ease-in-out duration-300 group-hover:scale-105 w-full">
-                Submit Token
+                {false ? "Authenticating..." : "Submit Token"}
               </span>
             </button>
           </form>
+
+          {/* Error display for debugging */}
+          {error && (
+            <div className="text-red-500 text-sm text-center mt-4">
+              Error: {error.message}
+            </div>
+          )}
         </div>
       </div>
     </div>

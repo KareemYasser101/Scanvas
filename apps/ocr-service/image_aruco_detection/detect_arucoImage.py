@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from scipy import ndimage
 import os
 import sys
 import itertools
@@ -119,7 +120,7 @@ def process_image(image_path, output_path):
     def clean_and_rebuild_cell(cropped):
         gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
 
-        # Adaptive threshold to binarize
+        # Binarize
         binary = cv2.adaptiveThreshold(
             gray, 255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -127,19 +128,7 @@ def process_image(image_path, output_path):
             blockSize=11, C=10
         )
 
-        # Remove connected components touching the border
-        # h, w = binary.shape
-        # mask = np.zeros((h + 2, w + 2), np.uint8)
-        # for x in range(w):
-        #     for y in [0, h - 1]:
-        #         if binary[y, x] == 255:
-        #             cv2.floodFill(binary, mask, (x, y), 0)
-        # for y in range(h):
-        #     for x in [0, w - 1]:
-        #         if binary[y, x] == 255:
-        #             cv2.floodFill(binary, mask, (x, y), 0)
-
-        # Find bounding box of remaining foreground
+        # Find digit bounding box
         coords = cv2.findNonZero(binary)
         if coords is None:
             return np.zeros((28, 28), dtype=np.uint8)
@@ -147,16 +136,24 @@ def process_image(image_path, output_path):
         x, y, w, h = cv2.boundingRect(coords)
         digit = binary[y:y + h, x:x + w]
 
-        # Pad to square
-        side = max(w, h)
-        square = np.zeros((side, side), dtype=np.uint8)
-        xo = (side - w) // 2
-        yo = (side - h) // 2
-        square[yo:yo + h, xo:xo + w] = digit
+        # Resize to 20x20 while keeping aspect ratio
+        if w > h:
+            new_w = 20
+            new_h = int(h * (20.0 / w))
+        else:
+            new_h = 20
+            new_w = int(w * (20.0 / h))
 
-        # Resize to 28x28
-        digit_28 = cv2.resize(square, (28, 28), interpolation=cv2.INTER_AREA)
-        return digit_28
+        resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+        # Create 28x28 image and paste resized digit at center
+        padded = np.zeros((28, 28), dtype=np.uint8)
+        x_offset = (28 - new_w) // 2
+        y_offset = (28 - new_h) // 2
+        padded[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
+
+        return padded
+
 
 
     grid_image, id_cells = extract_id_cells(warped)
@@ -185,7 +182,6 @@ def process_image(image_path, output_path):
         cv2.imwrite(final_path, clean_img)
 
     print(f"✅ Cleaned digit cells saved to: {final_output_folder}")
-
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
