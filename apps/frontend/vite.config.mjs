@@ -6,12 +6,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 3000,
-    proxy: {
-      "/api/trpc": {
-        target: "http://localhost:8080/",
-        changeOrigin: true,
-      },
+  port: 3000,
+  proxy: {
+    "/api/trpc": {
+      target: process.env.VITE_API_URL || "http://localhost:4000",
+      changeOrigin: true,
     },
   },
+},
+
 });
