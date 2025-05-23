@@ -9,7 +9,7 @@ export function initTrpcRouter(app: Express) {
     trpcExpress.createExpressMiddleware({
       router: appRouter,
       createContext,
-      onError: ({ path, error }) => {
+      onError: ({ path, error }: { path?: string; error: Error }) => {
         console.error(
           `❌ tRPC failed on ${path ?? "<no-path>"}: ${error}`
         );
