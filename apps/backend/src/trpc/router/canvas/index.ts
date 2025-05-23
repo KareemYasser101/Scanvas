@@ -127,97 +127,114 @@ export const canvasRouter = router({
 
   //#region create
   create_Mark_AttendanceAssignment: publicProcedure
-    .input(
-      z.object({
-        accessToken: z.string().min(1, "Access Token is required"),
-        courseId: z.string().min(1, "Course ID is required"),
-        imageUrls: z
-          .array(z.string().url("Each image URL must be valid"))
-          .min(1, "At least one image URL is required"),
-        assignmentName: z.string().min(1, "Assignment Name is required"),
-        pointsPossible: z.number().min(0.5, "Points must be greater than 0"),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const canvas = new CanvasApi(API_URL, input.accessToken);
+  .input(
+    z.object({
+      accessToken: z.string().min(1, "Access Token is required"),
+      courseId: z.string().min(1, "Course ID is required"),
+      imageUrls: z
+        .array(z.string().url("Each image URL must be valid"))
+        .min(1, "At least one image URL is required"),
+      assignmentName: z.string().min(1, "Assignment Name is required"),
+      pointsPossible: z.number().min(0.5, "Points must be greater than 0"),
+    })
+  )
+  .mutation(async ({ input }) => {
+    const canvas = new CanvasApi(API_URL, input.accessToken);
 
-      try {
-        // Check if access token is valid
-        const checkAuth = await canvas.get("/api/v1/users/self");
-        if (checkAuth.statusCode === 302 || !checkAuth.json) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Invalid access token ",
-          });
-        }
-
-        // Create the attendance assignment
-        const assignmentResponse = await canvas.request(
-          `/api/v1/courses/${input.courseId}/assignments`,
-          "POST",
-          {
-            name: input.assignmentName,
-            points_possible: input.pointsPossible,
-            submission_types: ["none"], // No file uploads
-            published: true,
-            description: `Attendance based on ${input.imageUrls.length} image(s):\n${input.imageUrls.join("\n")}`,
-          }
-        );
-
-        const assignmentId = assignmentResponse.json?.id;
-        if (!assignmentId) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Failed to create attendance assignment",
-          });
-        }
-
-        // *******OCR-SERVICE*******
-        // ***Send and Recieve requests using HTTP to the python server***
-
-        // Hardcoded list of students for now (replace later with OCR output)
-        const presentStudents = [
-          12345, // Example Canvas User IDs
-          67890,
-        ];
-        // *******OCR-SERVICE*******
-
-        // After assignment is created
-        const gradeData = presentStudents.reduce(
-          (acc, studentId) => {
-            acc[studentId] = { posted_grade: input.pointsPossible };
-            return acc;
-          },
-          {} as Record<string, { posted_grade: number }>
-        );
-
-        // Bulk mark all students at once
-        await canvas.request(
-          `/api/v1/courses/${input.courseId}/assignments/${assignmentId}/submissions/update_grades`,
-          "POST",
-          {
-            grade_data: gradeData,
-          }
-        );
-
-        return {
-          success: true,
-          message: "Attendance assignment created and students marked ",
-          assignmentId,
-          markedStudents: presentStudents.length,
-        };
-      } catch (error) {
-        console.error("Attendance Error:", error);
-
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-
+    try {
+      // ✅ Step 1: Validate access token
+      const checkAuth = await canvas.get("/api/v1/users/self");
+      if (checkAuth.statusCode === 302 || !checkAuth.json) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Unexpected server error during attendance process",
+          code: "UNAUTHORIZED",
+          message: "Invalid access token",
         });
       }
-    }),
+
+      // ✅ Step 2: Create the assignment
+      const assignmentResponse = await canvas.request(
+        `/api/v1/courses/${input.courseId}/assignments`,
+        "POST",
+        {
+          assignment: {
+            name: input.assignmentName,
+            points_possible: input.pointsPossible,
+            submission_types: ["none"],
+            published: true,
+            description: `Attendance based on SCanvas image upload`,
+          },
+        }
+      );
+
+      const assignmentId = assignmentResponse.json?.id;
+      if (!assignmentId) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create attendance assignment",
+        });
+      }
+
+      // Step 3: Fetch all enrolled users
+      const response = await canvas.get(
+        `/api/v1/courses/${input.courseId}/users?enrollment_type[]=student`
+      );
+
+      const enrolledStudents = response.json as Array<any>;
+
+      // Step 4: Build universityId → canvasUserId map
+      const universityIdToCanvasIdMap: Record<string, number> = {};
+      for (const student of enrolledStudents) {
+        const email = student.email || student.login_id;
+        const uniId = email?.split("@")[0];
+        if (uniId) {
+          universityIdToCanvasIdMap[uniId] = student.id;
+        }
+      }
+
+
+      // ✅ Step 5: Extract IDs from OCR (mocked for now)
+      const ocrExtractedIds = ["22-101100", "22-101184"]; // Replace with OCR service result
+
+      const presentStudents = ocrExtractedIds
+        .map((uniId) => universityIdToCanvasIdMap[uniId])
+        .filter(Boolean); // Remove undefined if not found
+
+      if (presentStudents.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No matching students found from OCR IDs",
+        });
+      }
+
+      // ✅ Step 6: Prepare grade payload
+      const gradeData = presentStudents.reduce((acc, canvasUserId) => {
+        acc[canvasUserId] = { posted_grade: input.pointsPossible };
+        return acc;
+      }, {} as Record<string, { posted_grade: number }>);
+
+      // ✅ Step 7: Submit grades in bulk
+      await canvas.request(
+        `/api/v1/courses/${input.courseId}/assignments/${assignmentId}/submissions/update_grades`,
+        "POST",
+        { grade_data: gradeData }
+      );
+
+      return {
+        success: true,
+        message: "✅ Attendance marked for matching students",
+        assignmentId,
+        markedStudents: presentStudents.length,
+      };
+    } catch (error) {
+      console.error("Attendance Error:", error);
+      if (error instanceof TRPCError) throw error;
+
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Unexpected error during attendance",
+      });
+    }
+  }),
+
   //#endregion create
 });

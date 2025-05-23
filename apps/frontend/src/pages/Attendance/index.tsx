@@ -17,16 +17,19 @@ const Attendance: React.FC = () => {
     `Attendance - ${new Date().toLocaleDateString()}`
   );
   const [pointsPossible, setPointsPossible] = useState(1);
+  const [accessToken, setAccessToken] = useState("");
 
-  const accessToken = localStorage.getItem("canvasAccessToken");
+  const AccessToken = localStorage.getItem("canvasAccessToken");
 
   // Validate access token
   useEffect(() => {
-    if (!accessToken) {
+    if (!AccessToken) {
       toast.error("Please authenticate first");
       navigate("/auth");
+    } else {
+      setAccessToken(AccessToken);
     }
-  }, [accessToken, navigate]);
+  });
 
   // Handle selecting multiple files
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,7 +133,7 @@ const Attendance: React.FC = () => {
           {/* Preview area: either camera or grid of images or placeholder */}
           <div className="mb-6 h-80 bg-gray-100/50 rounded-2xl flex items-center justify-center overflow-hidden relative">
             {isCameraActive ? (
-              <>                
+              <>
                 <video
                   ref={videoRef}
                   autoPlay
@@ -158,8 +161,19 @@ const Attendance: React.FC = () => {
                       }
                       className="absolute top-1 right-1 bg-white/80 rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5 text-gray-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -172,13 +186,49 @@ const Attendance: React.FC = () => {
 
           {/* Inputs for assignment details */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            {/* Assignment Name and Points Possible */}
-            <div>{/* ... unchanged ... */}</div>
-            <div>{/* ... unchanged ... */}</div>
+            {/* Assignment Name */}
+            <div className="space-y-1">
+              <label
+                htmlFor="assignmentName"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Assignment Name
+              </label>
+              <input
+                type="text"
+                id="assignmentName"
+                value={assignmentName}
+                onChange={(e) => setAssignmentName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter assignment name"
+              />
+            </div>
+
+            {/* Points Possible */}
+            <div className="space-y-1">
+              <label
+                htmlFor="pointsPossible"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Points Possible
+              </label>
+              <input
+                type="number"
+                id="pointsPossible"
+                min="0.5"
+                step="0.5"
+                value={pointsPossible}
+                onChange={(e) => setPointsPossible(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="1"
+              />
+            </div>
           </div>
 
           {/* Action Buttons: Upload, Capture, Close (if camera active) */}
-          <div className={`${isCameraActive ? 'grid-cols-3' : 'grid-cols-2'} grid gap-4 mb-6`}>
+          <div
+            className={`${isCameraActive ? "grid-cols-3" : "grid-cols-2"} grid gap-4 mb-6`}
+          >
             <input
               type="file"
               ref={fileInputRef}
