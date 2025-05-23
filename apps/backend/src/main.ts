@@ -9,7 +9,7 @@ async function main() {
   const app = express();
   app.use(
     cors({
-      origin: ["http://localhost:3000", "http://127.0.0.1:3000"], // Your frontend URL
+      origin: ["http://localhost:3000", "http://127.0.0.1:3000", "https://scanvas-frontend-intorai.vercel.app"], // Your frontend URL
       credentials: true,
     })
   );
