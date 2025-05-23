@@ -68,8 +68,8 @@ def process_image(image_path, output_path):
     gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
     # Apply custom range thresholding
-    processed = np.where(gray <= 100, 0, gray)          # Pixels 0–50 → 0
-    processed = np.where(processed >= 155, 255, processed)  # Pixels 140–255 → 255
+    processed = np.where(gray <= 100, 0, gray)          # Pixels 0–100 → 0
+    processed = np.where(processed >= 155, 255, processed)  # Pixels 155–255 → 255
 
     processed = processed.astype(np.uint8)
 
@@ -105,6 +105,8 @@ def process_image(image_path, output_path):
 
     print(f"✅ Cleaned digit cells saved to: {final_output_folder}")
 
+    return len(id_cells)
+
 def extract_id_cells(warped_img):
     # Safely convert to grayscale
     if len(warped_img.shape) == 3:
@@ -127,7 +129,12 @@ def extract_id_cells(warped_img):
     boxes = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
-        if w > width * 0.02 and h > height * 0.02 and w < width * 0.95 and h < height * 0.95:
+        aspect_ratio = w / float(h)
+        if (
+            w > width * 0.02 and h > height * 0.02 and
+            w < width * 0.95 and h < height * 0.95 and
+            0.5 < aspect_ratio < 2.0  # Filter out overly rectangular boxes
+        ):
             boxes.append((x, y, w, h))
 
     if not boxes:
@@ -212,4 +219,7 @@ if __name__ == "__main__":
 
     input_image = sys.argv[1]
     output_image = sys.argv[2]
-    process_image(input_image, output_image)
+
+    if(process_image(input_image, output_image) != 184):
+        #  call Soliman's method
+        print("insert ur shit here")
