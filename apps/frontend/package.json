@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx,ts,tsx",
-    "start": "serve -s dist -l $PORT",
+    "start": "PORT=${PORT:-3000} serve -s dist",
     "postinstall": "vite build"
   },
   "dependencies": {
