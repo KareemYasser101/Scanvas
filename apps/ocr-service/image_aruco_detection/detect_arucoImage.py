@@ -117,25 +117,25 @@ def process_image(image_path, output_path):
     #     cv2.THRESH_BINARY
     # )
 
-    # # 1) grayscale
-    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    # 1) grayscale
+    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
-    # # 2) black-hat filter to highlight dark lines & handwriting
-    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
-    # blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
-    # blackhat = cv2.normalize(blackhat, None, 0, 255, cv2.NORM_MINMAX)
+    # 2) black-hat filter to highlight dark lines & handwriting
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
+    blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
+    blackhat = cv2.normalize(blackhat, None, 0, 255, cv2.NORM_MINMAX)
 
-    # # 3) threshold the blackhat to get a mask of all dark features
-    # #    (tune thresh between 10–30)
-    # _, mask = cv2.threshold(
-    #     blackhat,
-    #     20,
-    #     255,
-    #     cv2.THRESH_BINARY
-    # )
+    # 3) threshold the blackhat to get a mask of all dark features
+    #    (tune thresh between 10–30)
+    _, mask = cv2.threshold(
+        blackhat,
+        20,
+        255,
+        cv2.THRESH_BINARY
+    )
 
-    # # 4) invert mask so features become black, background white
-    # processed = cv2.bitwise_not(mask)
+    # 4) invert mask so features become black, background white
+    processed = cv2.bitwise_not(mask)
 
 
     processed = processed.astype(np.uint8)
@@ -240,30 +240,48 @@ def extract_id_cells(warped_img):
 
     return debug_img, id_cells
 
+
 def clean_and_rebuild_cell(cropped):
-    # Safely convert to grayscale
     if len(cropped.shape) == 3:
         gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     else:
         gray = cropped.copy()
 
-    binary = cv2.adaptiveThreshold(
-        gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY_INV,
-        blockSize=11, C=10
+    # Light blur to reduce noise
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    # Otsu's thresholding (automatically chooses the best global threshold)
+    _, binary = cv2.threshold(
+        gray, 0, 255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
     )
+
+    # Invert to get white digit on black background (MNIST style)
+    binary = 255 - binary
 
     coords = cv2.findNonZero(binary)
     if coords is None:
         return np.zeros((28, 28), dtype=np.uint8)
 
     x, y, w, h = cv2.boundingRect(coords)
+
+    # Small margin inside bounds
+    margin = 1
+    x = max(x - margin, 0)
+    y = max(y - margin, 0)
+    w = min(w + 2 * margin, binary.shape[1] - x)
+    h = min(h + 2 * margin, binary.shape[0] - y)
+
     digit = binary[y:y + h, x:x + w]
 
     if digit.size == 0:
         return np.zeros((28, 28), dtype=np.uint8)
 
+    # Slight dilation to thicken strokes
+    kernel = np.ones((2, 2), np.uint8)
+    digit = cv2.dilate(digit, kernel, iterations=1)
+
+    # Resize to 20x20 keeping aspect ratio
     if w > h:
         new_w = 20
         new_h = max(1, int(h * (20.0 / w)))
@@ -272,12 +290,16 @@ def clean_and_rebuild_cell(cropped):
         new_w = max(1, int(w * (20.0 / h)))
 
     resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    # Center in 28x28 image
     padded = np.zeros((28, 28), dtype=np.uint8)
     x_offset = (28 - new_w) // 2
     y_offset = (28 - new_h) // 2
     padded[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
 
     return padded
+
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
