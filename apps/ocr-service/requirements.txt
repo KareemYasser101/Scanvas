@@ -1,11 +1,13 @@
 # Web Framework
-flask==2.3.3
+flask==3.0.0
 flask-cors==4.0.0
 
 # Image Processing
-opencv-python-headless==4.8.0.74
-numpy==1.24.3
+opencv-python-headless==4.8.1.78
+numpy>=1.26.0
 Pillow==10.0.0
 
 # Machine Learning
-tensorflow==2.13.0
+tensorflow>=2.16.0  # Updated to a version that supports Python 3.12
+
+setuptools>=65
