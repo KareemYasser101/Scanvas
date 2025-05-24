@@ -19,7 +19,6 @@ const Attendance: React.FC = () => {
   const [pointsPossible, setPointsPossible] = useState(1);
   const [accessToken, setAccessToken] = useState("");
 
-  // Rename localStorage lookup to avoid confusion
   const storedAccessToken = localStorage.getItem("canvasAccessToken");
 
   useEffect(() => {
@@ -76,9 +75,15 @@ const Attendance: React.FC = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext("2d");
       if (context) {
-        context.drawImage(videoRef.current, 0, 0, 400, 300);
-        const imageDataUrl = canvasRef.current.toDataURL("image/jpeg");
+        const { videoWidth, videoHeight } = videoRef.current;
+        canvasRef.current.width = videoWidth;
+        canvasRef.current.height = videoHeight;
+
+        context.drawImage(videoRef.current, 0, 0, videoWidth, videoHeight);
+        const imageDataUrl = canvasRef.current.toDataURL("image/jpeg", 0.95);
         setImages((prev) => [...prev, imageDataUrl]);
+
+        closeCamera();
       }
     }
   };
@@ -141,7 +146,7 @@ const Attendance: React.FC = () => {
             Mark Attendance
           </h1>
 
-          <div className="mb-6 h-80 bg-gray-100/50 rounded-2xl flex items-center justify-center overflow-hidden relative">
+          <div className="mb-6 max-h-[60vh] bg-gray-100/50 rounded-2xl flex items-center justify-center overflow-hidden relative">
             {isCameraActive ? (
               <>
                 <video
@@ -149,13 +154,9 @@ const Attendance: React.FC = () => {
                   autoPlay
                   muted
                   playsInline
-                  className={`absolute inset-0 w-full h-full object-cover rounded-2xl transition-opacity
-                            ${isCameraActive ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+                  className={`w-full h-full object-contain rounded-2xl transition-opacity
+                    ${isCameraActive ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 />
-                {!isCameraActive && (
-                  <p className="text-gray-500 z-10">No images selected</p>
-                )}
-
                 <canvas
                   ref={canvasRef}
                   className="hidden"
@@ -188,7 +189,6 @@ const Attendance: React.FC = () => {
             )}
           </div>
 
-          {/* Form Inputs */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="space-y-1">
               <label
@@ -223,10 +223,7 @@ const Attendance: React.FC = () => {
             </div>
           </div>
 
-          {/* Camera and Upload Controls */}
-          <div
-            className={`grid gap-4 mb-6 ${isCameraActive ? "grid-cols-3" : "grid-cols-2"}`}
-          >
+          <div className={`grid gap-4 mb-6 ${isCameraActive ? "grid-cols-3" : "grid-cols-2"}`}>
             <input
               type="file"
               ref={fileInputRef}
@@ -257,21 +254,14 @@ const Attendance: React.FC = () => {
             )}
           </div>
 
-          {/* Submit */}
           <button
             onClick={handleMarkAttendance}
-            disabled={
-              images.length === 0 || createAttendanceAssignment.isPending
-            }
+            disabled={images.length === 0 || createAttendanceAssignment.isPending}
             className={`w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition text-sm font-semibold cursor-pointer ${
-              createAttendanceAssignment.isPending
-                ? "opacity-70 cursor-not-allowed"
-                : ""
+              createAttendanceAssignment.isPending ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >
-            {createAttendanceAssignment.isPending
-              ? "⏳ Marking Attendance..."
-              : "Mark Attendance"}
+            {createAttendanceAssignment.isPending ? "⏳ Marking Attendance..." : "Mark Attendance"}
           </button>
         </div>
       </div>
