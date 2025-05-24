@@ -32,6 +32,8 @@ export async function getExtractedIdsFromOCR(
     const FLASK_OCR_URL = process.env.OCR_SERVICE_LINK_PROD + "/extractIds";
     const formData = new FormData();
 
+    console.log("Before base64")
+
     base64ImageUrls.forEach((base64, i) => {
       // Extract base64 string (remove data:image/jpeg;base64,...)
       const matches = base64.match(/^data:image\/\w+;base64,(.+)$/);
@@ -45,11 +47,11 @@ export async function getExtractedIdsFromOCR(
         contentType: "image/jpeg",
       });
     });
-
+    console.log("Before Response")
     const response = await axios.post(FLASK_OCR_URL, formData, {
       headers: formData.getHeaders(),
     });
-
+    console.log("After Response: ", response)
     if (response.data.status !== "success") {
       throw new Error(response.data.message || "OCR failed");
     }
@@ -258,8 +260,11 @@ export const canvasRouter = router({
           }
         }
 
+        console.log("Before canvasRouter ocrextract")
+
         // ✅ Step 5: Extract IDs from OCR (python flask server)
         const ocrExtractedIds = await getExtractedIdsFromOCR(input.imageUrls);
+        console.log("After canvasRouter ocrextract: ", ocrExtractedIds)
 
         const presentStudents = ocrExtractedIds
           .map((uniId) => universityIdToCanvasIdMap[uniId])
