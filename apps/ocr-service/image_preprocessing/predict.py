@@ -17,14 +17,6 @@ except Exception as e:
 
 def predict(image):
     cleaned_cells, num_markers, error = process_image(image)
-    # Save each cell
-    for i, cell in enumerate(cleaned_cells):
-        # Convert from float32 to uint8 if needed
-        if cell.dtype == np.float32:
-            cell = (cell * 255).astype(np.uint8)
-        # Save the image
-        cv2.imwrite(os.path.join(output_dir, f'cell_{i:03d}.png'), cell)
-    
     if ((error is not None) and (num_markers != 4)) or (len(cleaned_cells) != 184):
         print(f"Error: {error}")
         return False
