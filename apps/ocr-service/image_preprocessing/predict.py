@@ -1,30 +1,37 @@
 import os
 from image_preprocessing.extract_cells import process_image
 from keras.models import load_model
+import numpy as np
+import cv2
 
 # Get the absolute path to the model file
 current_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(current_dir, '..', 'MNIST_Model', 'latest_model.keras')
+model_path = os.path.join(current_dir, '..', 'MNIST_Model', 'attendance_digit_model_original_modified.h5')
 
 try:
     # Try loading with compile=False first
     model = load_model(model_path, compile=False)
-    # If the model was compiled, we'll need to compile it manually
-    try:
-        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    except:
-        pass  # Model might not need compilation
-    print("Model loaded successfully")
 except Exception as e:
     print(f"Error loading model: {e}")
     raise
 
 def predict(image):
     cleaned_cells, num_markers, error = process_image(image)
+    # Save each cell
+    for i, cell in enumerate(cleaned_cells):
+        # Convert from float32 to uint8 if needed
+        if cell.dtype == np.float32:
+            cell = (cell * 255).astype(np.uint8)
+        # Save the image
+        cv2.imwrite(os.path.join(output_dir, f'cell_{i:03d}.png'), cell)
+    
     if ((error is not None) and (num_markers != 4)) or (len(cleaned_cells) != 184):
         print(f"Error: {error}")
         return False
     else:
+        # ✅ Add these lines:
+        cleaned_cells = np.expand_dims(cleaned_cells, axis=-1)  # Now shape becomes (N, 28, 28, 1)
+        cleaned_cells = cleaned_cells.astype("float32") / 255.0  # Normalize
         idArray = []
         predicted_digits = np.argmax(model.predict(cleaned_cells), axis=1)
         
@@ -37,5 +44,7 @@ def predict(image):
             if len(group) == 8:  # Only process complete groups
                 formatted_id = f"{group[:2]}-{group[2:]}"
                 idArray.append(formatted_id)
+
+        print(idArray)
         
         return idArray

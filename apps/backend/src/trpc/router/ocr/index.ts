@@ -1,37 +1,26 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../../trpc";
 import { TRPCError } from "@trpc/server";
-import * as tesseract from "tesseract.js";
+import { getExtractedIdsFromOCR } from "../canvas";
 
 export const ocrRouter = router({
   extractStudentIds: publicProcedure
     .input(
       z.object({
-        imageUrl: z.string().min(1, "Image URL is required"),
+        imageUrls: z
+          .array(z.string().url("Each image URL must be valid"))
+          .min(1, "At least one image URL is required"),
       })
     )
     .mutation(async ({ input }) => {
       try {
-        // Remove data URL prefix if present
-        const base64Image = input.imageUrl.replace(
-          /^data:image\/\w+;base64,/,
-          ""
-        );
-
-        // Convert base64 to buffer
-        const imageBuffer = Buffer.from(base64Image, "base64");
-
         // Perform OCR
-        const {
-          data: { text },
-        } = await tesseract.recognize(imageBuffer, "eng", {
-          logger: (m) => console.log(m),
-        });
+        const ocrExtractedIds = await getExtractedIdsFromOCR(input.imageUrls);
 
 
         return {
           success: true,
-          text,
+          ocrExtractedIds,
         };
       } catch (error) {
         console.error("OCR extraction error:", error);

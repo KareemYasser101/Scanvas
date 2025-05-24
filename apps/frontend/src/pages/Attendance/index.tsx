@@ -106,7 +106,11 @@ const Attendance: React.FC = () => {
           setImages([]);
           navigate("/");
         } else {
-          toast.error("Failed to mark attendance");
+          if(result.markedStudents === 0){
+            toast.error(result.message);
+          }else {
+            toast.error("Failed to mark attendance");
+          }
         }
       },
       onError: (error) => {

@@ -2,6 +2,9 @@ import { z } from "zod";
 import { publicProcedure, router } from "../../trpc";
 import { CanvasApi } from "@kth/canvas-api";
 import { TRPCError } from "@trpc/server";
+import axios from "axios";
+import FormData from "form-data";
+import { Buffer } from "buffer";
 
 const API_URL = "https://canvas.instructure.com";
 const KAREEM_ACCESS_TOKEN =
@@ -21,6 +24,51 @@ type Course = {
   start_at?: string;
   end_at?: string;
 };
+
+export async function getExtractedIdsFromOCR(
+  base64ImageUrls: string[]
+): Promise<string[]> {
+  try {
+    const FLASK_OCR_URL = process.env.OCR_SERVICE_LINK_PROD + "/extractIds";
+    const formData = new FormData();
+
+    base64ImageUrls.forEach((base64, i) => {
+      // Extract base64 string (remove data:image/jpeg;base64,...)
+      const matches = base64.match(/^data:image\/\w+;base64,(.+)$/);
+      if (!matches || matches.length !== 2) {
+        throw new Error("Invalid base64 image format");
+      }
+
+      const buffer = Buffer.from(matches[1], "base64");
+      formData.append("images", buffer, {
+        filename: `image_${i + 1}.jpg`,
+        contentType: "image/jpeg",
+      });
+    });
+
+    const response = await axios.post(FLASK_OCR_URL, formData, {
+      headers: formData.getHeaders(),
+    });
+
+    if (response.data.status !== "success") {
+      throw new Error(response.data.message || "OCR failed");
+    }
+
+    const idArray = Array.isArray(response.data.idArray)
+      ? response.data.idArray.filter(
+          (id): id is string => typeof id === "string"
+        )
+      : [];
+
+    return [...new Set(idArray)] as string[];
+  } catch (error: any) {
+    console.error("Error calling OCR service:", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: error.response?.data?.message || "OCR image processing failed",
+    });
+  }
+}
 
 export const canvasRouter = router({
   //#region auth
@@ -65,8 +113,8 @@ export const canvasRouter = router({
             avatarUrl: userData.avatar_url,
             locale: userData.locale,
             createdAt: userData.created_at,
-          }
-        }
+          },
+        };
       } catch (error) {
         console.error("Authentication error:", error);
 
@@ -193,6 +241,15 @@ export const canvasRouter = router({
 
         // Step 4: Build universityId → canvasUserId map
         const universityIdToCanvasIdMap: Record<string, number> = {};
+        const allStudentIds = enrolledStudents.map((student) => student.id);
+        const gradeData = allStudentIds.reduce(
+          (acc, studentId) => {
+            acc[studentId] = { posted_grade: 0 }; // Initialize all to 0
+            return acc;
+          },
+          {} as Record<string, { posted_grade: number }>
+        );
+
         for (const student of enrolledStudents) {
           const email = student.email || student.login_id;
           const uniId = email?.split("@")[0];
@@ -201,28 +258,30 @@ export const canvasRouter = router({
           }
         }
 
-        // ✅ Step 5: Extract IDs from OCR (mocked for now)
-        const ocrExtractedIds = ["22-101100", "22-101184"]; // Replace with OCR service result
+        // ✅ Step 5: Extract IDs from OCR (python flask server)
+        const ocrExtractedIds = await getExtractedIdsFromOCR(input.imageUrls);
 
         const presentStudents = ocrExtractedIds
           .map((uniId) => universityIdToCanvasIdMap[uniId])
           .filter(Boolean); // Remove undefined if not found
 
         if (presentStudents.length === 0) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "No matching students found from OCR IDs",
-          });
+          return {
+            success: false,
+            message: "No student Id's extracted",
+            assignmentId,
+            markedStudents: presentStudents.length,
+          };
         }
 
         // ✅ Step 6: Prepare grade payload
-        const gradeData = presentStudents.reduce(
-          (acc, canvasUserId) => {
-            acc[canvasUserId] = { posted_grade: input.pointsPossible };
-            return acc;
-          },
-          {} as Record<string, { posted_grade: number }>
-        );
+        presentStudents.forEach((canvasUserId) => {
+          if (canvasUserId) {
+            gradeData[canvasUserId] = { posted_grade: input.pointsPossible };
+          }
+        });
+
+        console.log(gradeData)
 
         // ✅ Step 7: Submit grades in bulk
         await canvas.request(

@@ -80,22 +80,26 @@ def process_image(image):
 
         # Preprocessing for contour detection
         gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        # 1) smooth noise
+        blur = cv2.GaussianBlur(gray, (5,5), 0)
 
-        # Black-hat filter to highlight dark lines & handwriting
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 25))
-        blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
-        blackhat = cv2.normalize(blackhat, None, 0, 255, cv2.NORM_MINMAX)
+        # 2) compute Otsu’s threshold
+        ret, _ = cv2.threshold(
+            blur,
+            0,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
 
-        # Threshold the blackhat to get a mask of all dark features
-        _, mask = cv2.threshold(
-            blackhat,
-            20,
+        # 3) back off by Δ so lighter ink stays black
+        delta = -40                  # try values 10–30
+        th    = max(ret - delta, 0)
+        _, processed = cv2.threshold(
+            blur,
+            th,
             255,
             cv2.THRESH_BINARY
         )
-
-        # Invert mask so features become black, background white
-        processed = cv2.bitwise_not(mask)
         processed = processed.astype(np.uint8)
 
         # Extract cells

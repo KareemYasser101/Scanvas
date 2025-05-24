@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Auth from "./pages/Auth";
 import Attendance from "./pages/Attendance";
 import OCR from "./pages/OCR";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const useRouter = () => {
   // const queryClient = useQueryClient();
@@ -25,20 +26,31 @@ const useRouter = () => {
         },
         {
           path: "/courses",
-          element: <Courses />,
+          element: (
+            <ProtectedRoute>
+              <Courses />
+            </ProtectedRoute>
+          ),
           errorElement: <ErrorPage />,
         },
         {
           path: "/attendance/:cid",
-          element: <Attendance />,
+          element: (
+            <ProtectedRoute>
+              <Attendance />
+            </ProtectedRoute>
+          ),
           errorElement: <ErrorPage />,
         },
         {
           path: "/ocr",
-          element: <OCR />,
+          element: (
+            <OCR />
+          ),
           errorElement: <ErrorPage />,
         },
       ]),
+
     []
   );
 

@@ -7,23 +7,17 @@ const OCR: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [extractedText, setExtractedText] = useState<string | null>(null);
-  const [extractedIds, setExtractedIds] = useState<string[]>([]);
 
-  // Camera setup
+  const [images, setImages] = useState<string[]>([]);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [extractedIds, setExtractedIds] = useState<string[]>([]);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
   useEffect(() => {
     if (stream && videoRef.current) {
       videoRef.current.srcObject = stream;
       videoRef.current.play();
     }
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
   }, [stream]);
 
   const startCamera = async () => {
@@ -44,6 +38,14 @@ const OCR: React.FC = () => {
     }
   };
 
+  const closeCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    setIsCameraActive(false);
+  };
+
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext("2d");
@@ -51,43 +53,35 @@ const OCR: React.FC = () => {
         const { videoWidth, videoHeight } = videoRef.current;
         canvasRef.current.width = videoWidth;
         canvasRef.current.height = videoHeight;
+
         context.drawImage(videoRef.current, 0, 0, videoWidth, videoHeight);
         const imageDataUrl = canvasRef.current.toDataURL("image/jpeg", 0.95);
-        setImagePreview(imageDataUrl);
+        setImages((prev) => [...prev, imageDataUrl]);
+
         closeCamera();
       }
     }
   };
 
-  const closeCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
-    setIsCameraActive(false);
-  };
-
-  // Image upload handler
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImages((prev) => [...prev, reader.result as string]);
+        };
+        reader.readAsDataURL(file);
+      });
+      e.target.value = "";
     }
   };
 
-  // OCR Extraction mutation
   const extractOCR = trpc.ocr.extractStudentIds.useMutation({
     onSuccess: (result) => {
       if (result.success) {
-        setExtractedText(result.text);
-        const studentIds = result.text.match(/\b\d{9}\b/g) || [];
-        setExtractedIds([...new Set(studentIds)]);
-
-        if (studentIds.length === 0) {
+        setExtractedIds(result.ocrExtractedIds);
+        if (result.ocrExtractedIds.length === 0) {
           toast.error("No student IDs found in the image");
         }
       } else {
@@ -101,15 +95,14 @@ const OCR: React.FC = () => {
   });
 
   const handleExtract = () => {
-    if (!imagePreview) {
-      toast.error("Please capture or upload an image first");
+    if (images.length === 0) {
+      toast.error("Please upload or capture at least one image first");
       return;
     }
-    extractOCR.mutate({ imageUrl: imagePreview });
+    extractOCR.mutate({ imageUrls: images });
   };
 
   const closeModal = () => {
-    setExtractedText(null);
     setExtractedIds([]);
   };
 
@@ -125,7 +118,6 @@ const OCR: React.FC = () => {
             OCR Student ID Extraction
           </h1>
 
-          {/* Camera/Image Preview Area */}
           <div className="mb-6 max-h-[60vh] bg-gray-100/50 rounded-2xl flex items-center justify-center overflow-hidden relative">
             {isCameraActive ? (
               <>
@@ -134,134 +126,99 @@ const OCR: React.FC = () => {
                   autoPlay
                   muted
                   playsInline
-                  className="w-full h-full object-contain rounded-2xl"
+                  className="w-full h-full object-contain rounded-2xl transition-opacity"
                 />
-                <canvas ref={canvasRef} className="hidden" />
+                <canvas
+                  ref={canvasRef}
+                  className="hidden"
+                  width="400"
+                  height="300"
+                />
               </>
-            ) : imagePreview ? (
-              <div className="w-full h-full relative">
-                <img
-                  src={imagePreview}
-                  alt="OCR Preview"
-                  className="w-full h-full object-contain rounded-2xl"
-                />
-                <button
-                  onClick={() => setImagePreview(null)}
-                  className="absolute top-2 right-2 bg-white/80 hover:bg-white rounded-full p-1 shadow-md transition cursor-pointer"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
+            ) : images.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2 w-full h-full p-2 overflow-auto">
+                {images.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={url}
+                      alt={`Captured ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
                     />
-                  </svg>
-                </button>
+                    <button
+                      onClick={() =>
+                        setImages((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      className="absolute top-1 right-1 bg-white/80 rounded-full p-1 opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             ) : (
-              <p className="text-gray-500">No image selected</p>
+              <p className="text-gray-500">No images selected</p>
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-4 mb-6">
+          <div className={`grid gap-4 mb-6 ${isCameraActive ? "grid-cols-3" : "grid-cols-2"}`}>
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleImageUpload}
               accept="image/*"
+              multiple
               className="hidden"
             />
-            {isCameraActive ? (
-              <>
-                <button
-                  onClick={captureImage}
-                  className="w-full py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition cursor-pointer"
-                >
-                  📸 Capture
-                </button>
-                <button
-                  onClick={closeCamera}
-                  className="w-full py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition cursor-pointer"
-                >
-                  ❌ Close
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition flex items-center justify-center space-x-2 cursor-pointer"
-                >
-                  <span>📁 Upload</span>
-                </button>
-                <button
-                  onClick={startCamera}
-                  className="w-full py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition cursor-pointer"
-                >
-                  📷 Use Camera
-                </button>
-              </>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 cursor-pointer"
+            >
+              📁 Upload Images
+            </button>
+            <button
+              onClick={isCameraActive ? captureImage : startCamera}
+              className="py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 cursor-pointer"
+            >
+              {isCameraActive ? "📸 Capture" : "📷 Use Camera"}
+            </button>
+            {isCameraActive && (
+              <button
+                onClick={closeCamera}
+                className="py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 cursor-pointer"
+              >
+                ❌ Close Camera
+              </button>
             )}
           </div>
 
-          {/* Extract Button */}
           <button
             onClick={handleExtract}
-            disabled={!imagePreview || extractOCR.isPending}
-            className={`w-full py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition text-sm font-semibold ${
-              !imagePreview || extractOCR.isPending
-                ? "opacity-70 cursor-not-allowed"
-                : "cursor-pointer"
+            disabled={images.length === 0 || extractOCR.isPending}
+            className={`w-full py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition text-sm font-semibold cursor-pointer ${
+              extractOCR.isPending ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >
-            {extractOCR.isPending ? "Extracting..." : "Extract Student IDs"}
+            {extractOCR.isPending
+              ? `⏳ Extracting IDs...`
+              : `Extract IDs from ${images.length} image${images.length > 1 ? "s" : ""}`}
           </button>
 
-          {/* Results Modal */}
-          {(extractedText || extractedIds.length > 0) && (
+          {extractedIds.length > 0 && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
                 <h2 className="text-xl font-semibold mb-4">
                   Extraction Results
                 </h2>
-
-                {extractedIds.length > 0 && (
-                  <div className="mb-4">
-                    <h3 className="text-lg font-medium mb-2">Student IDs:</h3>
-                    <div className="space-y-2">
-                      {extractedIds.map((id, index) => (
-                        <div
-                          key={index}
-                          className="bg-gray-100 p-3 rounded-lg font-mono"
-                        >
-                          {id}
-                        </div>
-                      ))}
+                <div className="space-y-2">
+                  {extractedIds.map((id, index) => (
+                    <div
+                      key={index}
+                      className="bg-gray-100 p-3 rounded-lg font-mono"
+                    >
+                      {id}
                     </div>
-                  </div>
-                )}
-
-                {extractedText && (
-                  <div className="mb-4">
-                    <h3 className="text-lg font-medium mb-2">
-                      Extracted Text:
-                    </h3>
-                    <div className="bg-gray-100 p-3 rounded-lg max-h-40 overflow-y-auto">
-                      <pre className="whitespace-pre-wrap text-sm font-mono">
-                        {extractedText}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-
+                  ))}
+                </div>
                 <button
                   onClick={closeModal}
                   className="w-full mt-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition cursor-pointer"

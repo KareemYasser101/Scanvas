@@ -19,17 +19,16 @@ const Auth = () => {
     isPending,
     error,
   } = trpc.canvas.authenticateAccessToken.useMutation({
-    onSuccess(data) {
+    onSuccess(data, variables) {
+      console.log("Storing token:", variables.accessToken);
       // Store user data
-      localStorage.setItem("canvasAccessToken", accessToken);
+      localStorage.setItem("canvasAccessToken", variables.accessToken);
       localStorage.setItem("userName", data.user.name);
       localStorage.setItem("userAvatar", data.user.avatarUrl);
 
       // Only show success message if it's a new login
-      if (!isVerifying) {
-        toast.success(`Welcome back, ${data.user.name}!`);
-      }
-
+      navigate("/courses", { replace: true });
+      
       // Navigate to courses if not already there
       if (!window.location.pathname.includes("courses")) {
         navigate("/courses");
@@ -50,10 +49,12 @@ const Auth = () => {
   // Check for existing token on component mount
   useEffect(() => {
     const token = localStorage.getItem("canvasAccessToken");
-
+    console.log("Current token from localStorage:", token); // Add this line
     if (token) {
+      console.log("Found token, verifying...");
       verifyToken({ accessToken: token });
     } else {
+      console.log("No token found");
       setIsVerifying(false);
     }
   }, [navigate, verifyToken]);
@@ -67,11 +68,6 @@ const Auth = () => {
     setIsVerifying(false);
     verifyToken({ accessToken });
   };
-
-  const token = localStorage.getItem("canvasAccessToken");
-  if (token && !isVerifying) {
-    return null;
-  }
 
   if (isVerifying) {
     return (
