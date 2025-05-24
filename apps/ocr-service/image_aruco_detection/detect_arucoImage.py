@@ -73,27 +73,27 @@ def process_image(image_path, output_path):
 
 
     # #Option 1: works for evenly lit images
-    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    # # 1) smooth noise
-    # blur = cv2.GaussianBlur(gray, (5,5), 0)
+    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    # 1) smooth noise
+    blur = cv2.GaussianBlur(gray, (5,5), 0)
 
-    # # 2) compute Otsu’s threshold
-    # ret, _ = cv2.threshold(
-    #     blur,
-    #     0,
-    #     255,
-    #     cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    # )
+    # 2) compute Otsu’s threshold
+    ret, _ = cv2.threshold(
+        blur,
+        0,
+        255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
 
-    # # 3) back off by Δ so lighter ink stays black
-    # delta = -40                  # try values 10–30
-    # th    = max(ret - delta, 0)
-    # _, processed = cv2.threshold(
-    #     blur,
-    #     th,
-    #     255,
-    #     cv2.THRESH_BINARY
-    # )
+    # 3) back off by Δ so lighter ink stays black
+    delta = -40                  # try values 10–30
+    th    = max(ret - delta, 0)
+    _, processed = cv2.threshold(
+        blur,
+        th,
+        255,
+        cv2.THRESH_BINARY
+    )
     
     # #Option 2: only works for good images
     # # 1) grayscale
@@ -118,24 +118,24 @@ def process_image(image_path, output_path):
     # )
 
     # 1) grayscale
-    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
-    # 2) black-hat filter to highlight dark lines & handwriting
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
-    blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
-    blackhat = cv2.normalize(blackhat, None, 0, 255, cv2.NORM_MINMAX)
+    # # 2) black-hat filter to highlight dark lines & handwriting
+    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
+    # blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
+    # blackhat = cv2.normalize(blackhat, None, 0, 255, cv2.NORM_MINMAX)
 
-    # 3) threshold the blackhat to get a mask of all dark features
-    #    (tune thresh between 10–30)
-    _, mask = cv2.threshold(
-        blackhat,
-        20,
-        255,
-        cv2.THRESH_BINARY
-    )
+    # # 3) threshold the blackhat to get a mask of all dark features
+    # #    (tune thresh between 10–30)
+    # _, mask = cv2.threshold(
+    #     blackhat,
+    #     20,
+    #     255,
+    #     cv2.THRESH_BINARY
+    # )
 
-    # 4) invert mask so features become black, background white
-    processed = cv2.bitwise_not(mask)
+    # # 4) invert mask so features become black, background white
+    # processed = cv2.bitwise_not(mask)
 
 
     processed = processed.astype(np.uint8)
