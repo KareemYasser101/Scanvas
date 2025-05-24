@@ -32,7 +32,7 @@ export async function getExtractedIdsFromOCR(
     const FLASK_OCR_URL = process.env.OCR_SERVICE_LINK_PROD + "/extractIds";
     const formData = new FormData();
 
-    console.log("Before base64")
+    console.log("Before base64 (imageurls): ", base64ImageUrls)
 
     base64ImageUrls.forEach((base64, i) => {
       // Extract base64 string (remove data:image/jpeg;base64,...)
@@ -47,7 +47,7 @@ export async function getExtractedIdsFromOCR(
         contentType: "image/jpeg",
       });
     });
-    console.log("Before Response")
+    console.log("Before Response (FLASK_OCR_URL): ", FLASK_OCR_URL)
     const response = await axios.post(FLASK_OCR_URL, formData, {
       headers: formData.getHeaders(),
     });
