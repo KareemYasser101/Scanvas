@@ -64,12 +64,79 @@ def process_image(image_path, output_path):
     print(f"✅ Perspective corrected image saved to: {output_path}")
 
     # ============== PT done ===============================================================================
+    # Original
+    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
-    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    # # Apply custom range thresholding
+    # processed = np.where(gray <= 100, 0, gray)          # Pixels 0–100 → 0
+    # processed = np.where(processed >= 155, 255, processed)  # Pixels 155–255 → 255
 
-    # Apply custom range thresholding
-    processed = np.where(gray <= 100, 0, gray)          # Pixels 0–100 → 0
-    processed = np.where(processed >= 155, 255, processed)  # Pixels 155–255 → 255
+
+    # #Option 1: works for evenly lit images
+    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    # # 1) smooth noise
+    # blur = cv2.GaussianBlur(gray, (5,5), 0)
+
+    # # 2) compute Otsu’s threshold
+    # ret, _ = cv2.threshold(
+    #     blur,
+    #     0,
+    #     255,
+    #     cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    # )
+
+    # # 3) back off by Δ so lighter ink stays black
+    # delta = -40                  # try values 10–30
+    # th    = max(ret - delta, 0)
+    # _, processed = cv2.threshold(
+    #     blur,
+    #     th,
+    #     255,
+    #     cv2.THRESH_BINARY
+    # )
+    
+    # #Option 2: only works for good images
+    # # 1) grayscale
+    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+
+    # # 2) flatten shadows with morphological opening
+    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25,25))
+    # background = cv2.morphologyEx(gray, cv2.MORPH_OPEN, kernel)
+    # flat = cv2.subtract(gray, background)
+    # flat = cv2.normalize(flat, None, 0, 255, cv2.NORM_MINMAX)
+
+    # # 3) pick the 85th percentile as threshold (tune between 80–95)
+    # percentile = 80
+    # th = np.percentile(flat.flatten(), percentile)
+
+    # # 4) binary: anything darker than th → black (0), else white (255)
+    # _, processed = cv2.threshold(
+    #     flat.astype(np.uint8),
+    #     th,
+    #     255,
+    #     cv2.THRESH_BINARY
+    # )
+
+    # # 1) grayscale
+    # gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+
+    # # 2) black-hat filter to highlight dark lines & handwriting
+    # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
+    # blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
+    # blackhat = cv2.normalize(blackhat, None, 0, 255, cv2.NORM_MINMAX)
+
+    # # 3) threshold the blackhat to get a mask of all dark features
+    # #    (tune thresh between 10–30)
+    # _, mask = cv2.threshold(
+    #     blackhat,
+    #     20,
+    #     255,
+    #     cv2.THRESH_BINARY
+    # )
+
+    # # 4) invert mask so features become black, background white
+    # processed = cv2.bitwise_not(mask)
+
 
     processed = processed.astype(np.uint8)
 
