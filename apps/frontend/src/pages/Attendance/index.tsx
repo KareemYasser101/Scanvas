@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { trpc } from "../../api/trpc";
 import { toast } from "react-hot-toast";
+import BackButton from "../../components/BackButton";
 
 const Attendance: React.FC = () => {
   const { cid } = useParams<{ cid: string }>();
@@ -10,7 +11,6 @@ const Attendance: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Now storing multiple images
   const [images, setImages] = useState<string[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [assignmentName, setAssignmentName] = useState(
@@ -19,19 +19,18 @@ const Attendance: React.FC = () => {
   const [pointsPossible, setPointsPossible] = useState(1);
   const [accessToken, setAccessToken] = useState("");
 
-  const AccessToken = localStorage.getItem("canvasAccessToken");
+  // Rename localStorage lookup to avoid confusion
+  const storedAccessToken = localStorage.getItem("canvasAccessToken");
 
-  // Validate access token
   useEffect(() => {
-    if (!AccessToken) {
+    if (!storedAccessToken) {
       toast.error("Please authenticate first");
       navigate("/auth");
     } else {
-      setAccessToken(AccessToken);
+      setAccessToken(storedAccessToken);
     }
-  });
+  }, [storedAccessToken, navigate]);
 
-  // Handle selecting multiple files
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
@@ -42,36 +41,48 @@ const Attendance: React.FC = () => {
         };
         reader.readAsDataURL(file);
       });
-      // clear to allow re-uploading same files if needed
       e.target.value = "";
     }
   };
 
-  // Start camera stream
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play();
+    }
+  }, [stream]);
+
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setIsCameraActive(true);
-      }
-    } catch (error) {
-      toast.error("Unable to access camera");
-      console.error(error);
+      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: isMobile ? "environment" : "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      setStream(stream);
+      setIsCameraActive(true);
+    } catch (e) {
+      toast.error("Could not access camera");
     }
   };
 
-  // Capture current frame into images array
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const context = canvasRef.current.getContext("2d");
-      context?.drawImage(videoRef.current, 0, 0, 400, 300);
-      const imageDataUrl = canvasRef.current.toDataURL("image/jpeg");
-      setImages((prev) => [...prev, imageDataUrl]);
+      if (context) {
+        context.drawImage(videoRef.current, 0, 0, 400, 300);
+        const imageDataUrl = canvasRef.current.toDataURL("image/jpeg");
+        setImages((prev) => [...prev, imageDataUrl]);
+      }
     }
   };
 
-  // Stop camera and close view
   const closeCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -80,7 +91,6 @@ const Attendance: React.FC = () => {
     setIsCameraActive(false);
   };
 
-  // Mutation for creating attendance with multiple images
   const createAttendanceAssignment =
     trpc.canvas.create_Mark_AttendanceAssignment.useMutation({
       onSuccess: (result) => {
@@ -100,7 +110,6 @@ const Attendance: React.FC = () => {
       },
     });
 
-  // Submit handler
   const handleMarkAttendance = () => {
     if (images.length === 0) {
       toast.error("Please upload or capture at least one image first");
@@ -114,7 +123,6 @@ const Attendance: React.FC = () => {
     createAttendanceAssignment.mutate({
       accessToken: accessToken || "",
       courseId: cid,
-      // send array of image URLs
       imageUrls: images,
       assignmentName,
       pointsPossible,
@@ -123,22 +131,31 @@ const Attendance: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      {/* ... background blobs ... */}
+      <div className="fixed top-3 left-3 z-20">
+        <BackButton />
+      </div>
+
       <div className="relative z-10 w-full max-w-2xl">
         <div className="bg-white/90 rounded-3xl shadow-2xl backdrop-blur-sm p-8">
           <h1 className="text-2xl font-semibold text-gray-800 text-center mb-6">
             Mark Attendance
           </h1>
 
-          {/* Preview area: either camera or grid of images or placeholder */}
           <div className="mb-6 h-80 bg-gray-100/50 rounded-2xl flex items-center justify-center overflow-hidden relative">
             {isCameraActive ? (
               <>
                 <video
                   ref={videoRef}
                   autoPlay
-                  className="w-full h-full object-cover rounded-2xl"
+                  muted
+                  playsInline
+                  className={`absolute inset-0 w-full h-full object-cover rounded-2xl transition-opacity
+                            ${isCameraActive ? "opacity-100" : "opacity-0 pointer-events-none"}`}
                 />
+                {!isCameraActive && (
+                  <p className="text-gray-500 z-10">No images selected</p>
+                )}
+
                 <canvas
                   ref={canvasRef}
                   className="hidden"
@@ -152,29 +169,16 @@ const Attendance: React.FC = () => {
                   <div key={index} className="relative group">
                     <img
                       src={url}
-                      alt={`Attendance ${index + 1}`}
+                      alt={`Captured ${index + 1}`}
                       className="w-full h-full object-cover rounded-lg"
                     />
                     <button
                       onClick={() =>
                         setImages((prev) => prev.filter((_, i) => i !== index))
                       }
-                      className="absolute top-1 right-1 bg-white/80 rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                      className="absolute top-1 right-1 bg-white/80 rounded-full p-1 opacity-0 group-hover:opacity-100 transition cursor-pointer"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 text-gray-600"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
+                      ✕
                     </button>
                   </div>
                 ))}
@@ -184,9 +188,8 @@ const Attendance: React.FC = () => {
             )}
           </div>
 
-          {/* Inputs for assignment details */}
+          {/* Form Inputs */}
           <div className="grid grid-cols-2 gap-4 mb-6">
-            {/* Assignment Name */}
             <div className="space-y-1">
               <label
                 htmlFor="assignmentName"
@@ -199,12 +202,9 @@ const Attendance: React.FC = () => {
                 id="assignmentName"
                 value={assignmentName}
                 onChange={(e) => setAssignmentName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter assignment name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
-
-            {/* Points Possible */}
             <div className="space-y-1">
               <label
                 htmlFor="pointsPossible"
@@ -214,20 +214,18 @@ const Attendance: React.FC = () => {
               </label>
               <input
                 type="number"
-                id="pointsPossible"
                 min="0.5"
                 step="0.5"
                 value={pointsPossible}
                 onChange={(e) => setPointsPossible(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
-          {/* Action Buttons: Upload, Capture, Close (if camera active) */}
+          {/* Camera and Upload Controls */}
           <div
-            className={`${isCameraActive ? "grid-cols-3" : "grid-cols-2"} grid gap-4 mb-6`}
+            className={`grid gap-4 mb-6 ${isCameraActive ? "grid-cols-3" : "grid-cols-2"}`}
           >
             <input
               type="file"
@@ -239,23 +237,22 @@ const Attendance: React.FC = () => {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-3 px-2 text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition flex items-center justify-center space-x-2 shadow-sm"
+              className="py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 cursor-pointer"
             >
-              {/* upload icon and label */}
-              <span>Upload Images</span>
+              📁 Upload Images
             </button>
             <button
               onClick={isCameraActive ? captureImage : startCamera}
-              className="w-full py-3 px-2 text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition flex items-center justify-center space-x-2 shadow-sm"
+              className="py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 cursor-pointer"
             >
-              <span>{isCameraActive ? "Capture" : "Use Camera"}</span>
+              {isCameraActive ? "📸 Capture" : "📷 Use Camera"}
             </button>
             {isCameraActive && (
               <button
                 onClick={closeCamera}
-                className="w-full py-3 px-2 text-sm font-medium text-gray-800 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition flex items-center justify-center space-x-2 shadow-sm"
+                className="py-3 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 cursor-pointer"
               >
-                <span>Close Camera</span>
+                ❌ Close Camera
               </button>
             )}
           </div>
@@ -266,37 +263,15 @@ const Attendance: React.FC = () => {
             disabled={
               images.length === 0 || createAttendanceAssignment.isPending
             }
-            className={`w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition text-sm font-semibold ${createAttendanceAssignment.isPending ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
+            className={`w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition text-sm font-semibold cursor-pointer ${
+              createAttendanceAssignment.isPending
+                ? "opacity-70 cursor-not-allowed"
+                : ""
+            }`}
           >
-            <div className="flex items-center justify-center space-x-2">
-              {createAttendanceAssignment.isPending ? (
-                <>
-                  <svg
-                    className="animate-spin h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span>Marking Attendance...</span>
-                </>
-              ) : (
-                <span>Mark Attendance</span>
-              )}
-            </div>
+            {createAttendanceAssignment.isPending
+              ? "⏳ Marking Attendance..."
+              : "Mark Attendance"}
           </button>
         </div>
       </div>

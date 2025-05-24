@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { trpc } from "../../api/trpc";
 import { toast } from "react-hot-toast";
+import BackButton from "../../components/BackButton";
 
 const OCR: React.FC = () => {
   const navigate = useNavigate();
@@ -86,6 +87,11 @@ const OCR: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      {/* Back Button */}
+      <div className="fixed top-3 left-3 z-20">
+        <BackButton/>
+      </div>
+
       {/* Background gradient blobs */}
       <div className="absolute left-1/4 top-0 w-[35vw] h-[35vw] bg-[radial-gradient(circle_at_center,#f0e6ff,#ffccf9)] opacity-50 blur-[80px] rounded-full z-0"></div>
       <div className="absolute right-1/3 top-1/4 w-[25vw] h-[25vw] bg-[radial-gradient(circle_at_center,#cce4ff,#ccf2f1)] opacity-60 blur-[80px] rounded-full z-0"></div>

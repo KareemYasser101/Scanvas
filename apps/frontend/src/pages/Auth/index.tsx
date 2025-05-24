@@ -1,51 +1,93 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "../../api/trpc";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import BackButton from "../../components/BackButton";
 
 const Auth = () => {
   const [accessToken, setAccessToken] = useState("");
+  const [isVerifying, setIsVerifying] = useState(true);
   const navigate = useNavigate();
 
-  const { mutate, error, isPending, data } =
-    trpc.canvas.authenticateAccessToken.useMutation({
-      onSuccess(data) {
-        toast.success(`Authenticated successfully`);
-        // Store access token in local storage
-        localStorage.setItem("canvasAccessToken", accessToken);
-        // Navigate to courses page
+  const handleBack = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate('/', { state: { preserveAuth: true } });
+  };
+
+  const {
+    mutate: verifyToken,
+    isPending,
+    error,
+  } = trpc.canvas.authenticateAccessToken.useMutation({
+    onSuccess(data) {
+      // Store user data
+      localStorage.setItem("canvasAccessToken", accessToken);
+      localStorage.setItem("userName", data.user.name);
+      localStorage.setItem("userAvatar", data.user.avatarUrl);
+
+      // Only show success message if it's a new login
+      if (!isVerifying) {
+        toast.success(`Welcome back, ${data.user.name}!`);
+      }
+
+      // Navigate to courses if not already there
+      if (!window.location.pathname.includes("courses")) {
         navigate("/courses");
-      },
-      onError(error) {
-        console.error("Authentication Error:", error);
+      }
+    },
+    onError(error) {
+      console.error("Authentication Error:", error);
+      localStorage.removeItem("canvasAccessToken");
+      localStorage.removeItem("userName");
+      localStorage.removeItem("userAvatar");
+      if (!isVerifying) {
         toast.error(error.message || "Authentication failed");
-      },
-    });
+      }
+      setIsVerifying(false);
+    },
+  });
+
+  // Check for existing token on component mount
+  useEffect(() => {
+    const token = localStorage.getItem("canvasAccessToken");
+    const userName = localStorage.getItem("userName");
+
+    if (token && userName) {
+      verifyToken({ accessToken: token });
+    } else {
+      setIsVerifying(false);
+    }
+  }, [navigate, verifyToken]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Basic validation
-    if (!accessToken.trim() || isPending) {
-      if (!accessToken.trim()) {
-        toast.error("Please enter an access token");
-      }
+    if (!accessToken.trim()) {
+      toast.error("Please enter an access token");
       return;
     }
-
-    mutate({
-      accessToken,
-    });
+    setIsVerifying(false);
+    verifyToken({ accessToken });
   };
 
-  // Debug logging for any tRPC errors
-  if (error) {
-    console.error("tRPC Mutation Error:", error);
+  const token = localStorage.getItem("canvasAccessToken");
+  if (token && !isVerifying) {
+    return null;
+  }
+
+  if (isVerifying) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      </div>
+    );
   }
 
   return (
     <>
-      {/* Soft background blobs */}
+      <div className="fixed top-3 left-3 z-20">
+        <BackButton onClick={handleBack} />
+      </div>
+
       <div className="absolute left-1/4 top-0 w-[35vw] h-[35vw] bg-[radial-gradient(circle_at_center,#f0e6ff,#ffccf9)] opacity-50 blur-[80px] rounded-full"></div>
       <div className="absolute right-1/3 top-1/4 w-[25vw] h-[25vw] bg-[radial-gradient(circle_at_center,#cce4ff,#ccf2f1)] opacity-60 blur-[80px] rounded-full"></div>
 
@@ -101,7 +143,6 @@ const Auth = () => {
             </button>
           </form>
 
-          {/* Error display for debugging */}
           {error && (
             <div className="text-red-500 text-sm text-center mt-4">
               Error: {error.message}
