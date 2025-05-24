@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["python312", "python312Packages.setuptools", "python312Packages.pip", "python312Packages.distutils"]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools", "python311Packages.distutils"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [phases.start]
 cmds = ["python main.py"]
