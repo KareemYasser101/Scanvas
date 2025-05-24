@@ -1,6 +1,6 @@
 from image_preprocessing.extract_cells import process_image
 from tensorflow.keras.models import load_model 
-model = load_model('../MNIST_Model/test.h5')
+model = load_model('../MNIST_Model/latest_model.keras')
 
 def predict(image):
     cleaned_cells, num_markers, error = process_image(image)
