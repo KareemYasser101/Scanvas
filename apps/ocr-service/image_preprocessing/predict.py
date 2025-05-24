@@ -1,6 +1,23 @@
+import os
 from image_preprocessing.extract_cells import process_image
-from tensorflow.keras.models import load_model 
-model = load_model('../MNIST_Model/latest_model.keras')
+from keras.models import load_model
+
+# Get the absolute path to the model file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(current_dir, '..', 'MNIST_Model', 'latest_model.keras')
+
+try:
+    # Try loading with compile=False first
+    model = load_model(model_path, compile=False)
+    # If the model was compiled, we'll need to compile it manually
+    try:
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    except:
+        pass  # Model might not need compilation
+    print("Model loaded successfully")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    raise
 
 def predict(image):
     cleaned_cells, num_markers, error = process_image(image)
