@@ -11,7 +11,7 @@ const Auth = () => {
 
   const handleBack = (e: React.MouseEvent) => {
     e.preventDefault();
-    navigate('/', { state: { preserveAuth: true } });
+    navigate('/');
   };
 
   const {
@@ -50,9 +50,8 @@ const Auth = () => {
   // Check for existing token on component mount
   useEffect(() => {
     const token = localStorage.getItem("canvasAccessToken");
-    const userName = localStorage.getItem("userName");
 
-    if (token && userName) {
+    if (token) {
       verifyToken({ accessToken: token });
     } else {
       setIsVerifying(false);
