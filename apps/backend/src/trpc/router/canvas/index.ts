@@ -29,10 +29,8 @@ export async function getExtractedIdsFromOCR(
   base64ImageUrls: string[]
 ): Promise<string[]> {
   try {
-    const FLASK_OCR_URL = process.env.OCR_SERVICE_LINK_PROD + "/extractIds";
+    const FLASK_OCR_URL = process.env.OCR_SERVICE_LINK_PROD ?  `${process.env.OCR_SERVICE_LINK_PROD}/extractIds` : `${process.env.OCR_SERVICE_LINK_DEV}/extractIds`;
     const formData = new FormData();
-
-    console.log("Before base64 (imageurls): ", base64ImageUrls)
 
     base64ImageUrls.forEach((base64, i) => {
       // Extract base64 string (remove data:image/jpeg;base64,...)
@@ -47,11 +45,11 @@ export async function getExtractedIdsFromOCR(
         contentType: "image/jpeg",
       });
     });
-    console.log("Before Response (FLASK_OCR_URL): ", FLASK_OCR_URL)
+
     const response = await axios.post(FLASK_OCR_URL, formData, {
       headers: formData.getHeaders(),
     });
-    console.log("After Response: ", response)
+
     if (response.data.status !== "success") {
       throw new Error(response.data.message || "OCR failed");
     }
@@ -260,11 +258,8 @@ export const canvasRouter = router({
           }
         }
 
-        console.log("Before canvasRouter ocrextract")
-
         // ✅ Step 5: Extract IDs from OCR (python flask server)
         const ocrExtractedIds = await getExtractedIdsFromOCR(input.imageUrls);
-        console.log("After canvasRouter ocrextract: ", ocrExtractedIds)
 
         const presentStudents = ocrExtractedIds
           .map((uniId) => universityIdToCanvasIdMap[uniId])
@@ -285,8 +280,6 @@ export const canvasRouter = router({
             gradeData[canvasUserId] = { posted_grade: input.pointsPossible };
           }
         });
-
-        console.log(gradeData)
 
         // ✅ Step 7: Submit grades in bulk
         await canvas.request(

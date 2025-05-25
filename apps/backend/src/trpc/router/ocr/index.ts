@@ -15,9 +15,7 @@ export const ocrRouter = router({
     .mutation(async ({ input }) => {
       try {
         // Perform OCR
-        console.log("Before ocr-extract: images -> ", input.imageUrls)
         const ocrExtractedIds = await getExtractedIdsFromOCR(input.imageUrls);
-        console.log("after ocr-extract: ", ocrExtractedIds)
 
         return {
           success: true,
