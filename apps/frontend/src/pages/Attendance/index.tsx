@@ -19,6 +19,9 @@ const Attendance: React.FC = () => {
   const [pointsPossible, setPointsPossible] = useState(1);
   const [accessToken, setAccessToken] = useState("");
 
+  const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [presentStudents, setPresentStudents] = useState<string[]>([]);
+
   const storedAccessToken = localStorage.getItem("canvasAccessToken");
 
   useEffect(() => {
@@ -100,15 +103,13 @@ const Attendance: React.FC = () => {
     trpc.canvas.create_Mark_AttendanceAssignment.useMutation({
       onSuccess: (result) => {
         if (result.success) {
-          toast.success(
-            `Attendance marked for ${result.markedStudents} students`
-          );
+          setPresentStudents(result.presentStudents || []);
+          setShowStudentsModal(true);
           setImages([]);
-          navigate("/");
         } else {
-          if(result.markedStudents === 0){
+          if (result.markedStudents === 0) {
             toast.error(result.message);
-          }else {
+          } else {
             toast.error("Failed to mark attendance");
           }
         }
@@ -227,7 +228,9 @@ const Attendance: React.FC = () => {
             </div>
           </div>
 
-          <div className={`grid gap-4 mb-6 ${isCameraActive ? "grid-cols-3" : "grid-cols-2"}`}>
+          <div
+            className={`grid gap-4 mb-6 ${isCameraActive ? "grid-cols-3" : "grid-cols-2"}`}
+          >
             <input
               type="file"
               ref={fileInputRef}
@@ -260,15 +263,95 @@ const Attendance: React.FC = () => {
 
           <button
             onClick={handleMarkAttendance}
-            disabled={images.length === 0 || createAttendanceAssignment.isPending}
+            disabled={
+              images.length === 0 || createAttendanceAssignment.isPending
+            }
             className={`w-full py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 transition text-sm font-semibold cursor-pointer ${
-              createAttendanceAssignment.isPending ? "opacity-70 cursor-not-allowed" : ""
+              createAttendanceAssignment.isPending
+                ? "opacity-70 cursor-not-allowed"
+                : ""
             }`}
           >
-            {createAttendanceAssignment.isPending ? "⏳ Marking Attendance..." : "Mark Attendance"}
+            {createAttendanceAssignment.isPending
+              ? "⏳ Marking Attendance..."
+              : "Mark Attendance"}
           </button>
         </div>
       </div>
+      {showStudentsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-green-600">
+                  Attendance Marked Successfully
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowStudentsModal(false);
+                    navigate("/");
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              <p className="text-sm text-gray-500 mb-4">
+                Found {presentStudents.length} students in the image.
+              </p>
+
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">
+                  Present Students:
+                </h4>
+                <ul className="space-y-2 max-h-96 overflow-y-auto">
+                  {presentStudents.map((student, index) => (
+                    <li
+                      key={index}
+                      className="bg-white px-4 py-3 rounded-md border border-gray-200"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {student.name}
+                      </div>
+                      <div className="text-sm text-gray-500 font-mono">
+                        {student.id}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowStudentsModal(false);
+                  navigate("/");
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
