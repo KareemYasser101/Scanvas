@@ -18,22 +18,37 @@ const Home = () => {
         </p>
 
         <div className="flex flex-col space-y-4 w-full max-w-xs">
-          <button 
-          className="relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-purple-100 via-pink-100 to-red-100 backdrop-blur-lg hover:brightness-110 transition duration-300 w-full shadow-sm"
-          onClick={() => navigate("/auth")}
+          <button
+            className="relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-purple-100 via-pink-100 to-red-100 backdrop-blur-lg hover:brightness-110 transition duration-300 w-full shadow-sm"
+            onClick={() => navigate("/auth")}
           >
-
             <span className="cursor-pointer relative px-6 sm:px-8 py-3 sm:py-4 bg-white/30 rounded-full group-hover:bg-white/50 text-gray-800 transition-all ease-in-out duration-300 group-hover:scale-105 w-full">
               Submit Attendance Sheet
             </span>
           </button>
 
-          <button 
-          className="cursor-pointer relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 w-full shadow-sm"
-          onClick={() => navigate('/ocr')}
+          <button
+            className="cursor-pointer relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 w-full shadow-sm"
+            onClick={() => navigate("/ocr")}
           >
             <span className="relative px-6 sm:px-8 py-3 sm:py-4 bg-white/30 rounded-full group-hover:bg-white/50 text-gray-800 transition-all ease-in-out duration-300 group-hover:scale-105 w-full">
               OCR Test
+            </span>
+          </button>
+
+          <button
+            className="cursor-pointer relative inline-flex items-center justify-center p-[2px] overflow-hidden text-base sm:text-lg font-bold text-gray-800 rounded-full group bg-gradient-to-r from-blue-100 via-cyan-100 to-teal-100 backdrop-blur-lg hover:brightness-110 transition duration-300 w-full shadow-sm"
+            onClick={() => {
+              const link = document.createElement("a");
+              link.href = "/Scanvas_Template.pdf";
+              link.download = "Scanvas_Template.pdf";
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }}
+          >
+            <span className="relative px-6 sm:px-8 py-3 sm:py-4 bg-white/30 rounded-full group-hover:bg-white/50 text-gray-800 transition-all ease-in-out duration-300 group-hover:scale-105 w-full">
+              Download Template
             </span>
           </button>
         </div>
