@@ -8,7 +8,7 @@ import { Buffer } from "buffer";
 
 const API_URL = "https://canvas.instructure.com";
 const KAREEM_ACCESS_TOKEN =
-  "7~WE9fPFCX8Nv9ZVt3x8BwCVMEYKkY3e4JQPhz2VxKQNfGCxUKDycrFyRWRuzKQVr6";
+  "7~8DcNu2MDFPFc48nBn7ZXQmCttxNy3MGTNnu4f9ChN6WEYRXnUk4KwHZkfwfvJaaK";
 
 type CanvasUser = {
   id: number;

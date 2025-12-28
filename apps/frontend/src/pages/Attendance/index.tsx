@@ -116,7 +116,7 @@ const Attendance: React.FC = () => {
       },
       onError: (error) => {
         console.error("Attendance marking error:", error);
-        toast.error("An error occurred while marking attendance");
+        toast.error("An error occurred while marking attendance: " + error.message);
       },
     });
 
